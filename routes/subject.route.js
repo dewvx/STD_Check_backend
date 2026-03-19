@@ -6,22 +6,24 @@ const subjectRoute = Router();
 // CREATE: เพิ่มรายวิชา
 subjectRoute.post("/create-subject", async (req, res) => {
   try {
-    const { course_id, course_name, teacher_name } = req.body;
+    // 1. ถอด course_id ออก และเพิ่ม time_check เข้ามา
+    const { course_name, teacher_name, time_check } = req.body;
 
-    // ตรวจสอบข้อมูล
-    if (!course_id || !course_name || !teacher_name) {
+    // 2. ตรวจสอบข้อมูล (เปลี่ยนมาเช็คเวลาแทนรหัสวิชา)
+    if (!course_name || !teacher_name || !time_check) {
       return res.status(400).json({
         error: "กรุณากรอกข้อมูลให้ครบทุกช่อง",
       });
     }
 
-    const query = `INSERT INTO courses (course_id, course_name, teacher_name) 
+    // 3. เอา course_id ออกจากคำสั่ง INSERT แล้วเพิ่ม time_check เข้าไป
+    const query = `INSERT INTO courses (course_name, teacher_name, time_check) 
                    VALUES ($1, $2, $3) RETURNING *`;
 
     const result = await pool.query(query, [
-      course_id,
       course_name,
       teacher_name,
+      time_check,
     ]);
 
     res.status(201).json({
@@ -30,14 +32,6 @@ subjectRoute.post("/create-subject", async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-
-    // จัดการ error duplicate key
-    if (error.code === "23505") {
-      return res.status(400).json({
-        error: "รหัสวิชานี้มีอยู่แล้ว",
-      });
-    }
-
     res.status(500).json({
       error: "เกิดข้อผิดพลาดในการเพิ่มข้อมูล",
     });
@@ -67,7 +61,6 @@ subjectRoute.get("/get-all-subjects", async (req, res) => {
 subjectRoute.get("/get-subject/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    console.log("🚀 ~ id:", id);
     const query = `SELECT * FROM courses WHERE course_id = $1`;
     const result = await pool.query(query, [id]);
 
@@ -93,21 +86,23 @@ subjectRoute.get("/get-subject/:id", async (req, res) => {
 subjectRoute.put("/update-subject/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { course_name, teacher_name } = req.body;
+    // รับค่า time_check มาด้วยสำหรับการอัปเดต
+    const { course_name, teacher_name, time_check } = req.body;
 
-    // ตรวจสอบข้อมูล
-    if (!course_name || !teacher_name) {
+    // ตรวจสอบข้อมูลให้ครบ
+    if (!course_name || !teacher_name || !time_check) {
       return res.status(400).json({
         error: "กรุณากรอกข้อมูลให้ครบทุกช่อง",
       });
     }
 
+    // เพิ่ม time_check เข้าไปในคำสั่ง UPDATE
     const query = `UPDATE courses 
-                   SET course_name = $1, teacher_name = $2 
-                   WHERE course_id = $3 
+                   SET course_name = $1, teacher_name = $2, time_check = $3 
+                   WHERE course_id = $4 
                    RETURNING *`;
 
-    const result = await pool.query(query, [course_name, teacher_name, id]);
+    const result = await pool.query(query, [course_name, teacher_name, time_check, id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -178,7 +173,6 @@ WHERE s.student_id = $1
 `;
 
     const data = await pool.query(queryData, [stdId, classId]);
-    console.log("🚀 ~ data:", data);
 
     const statisticQuery = `SELECT
   COUNT(*) AS total,
