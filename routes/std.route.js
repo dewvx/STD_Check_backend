@@ -5,33 +5,39 @@ const stdRoute = Router();
 
 stdRoute.post("/create-std", async (req, res) => {
   try {
-    const { fullName, studentId, username, password } = req.body;
-    if (!fullName || !studentId || !username || !password)
-      return res.status(400);
+    // 1. รับค่าตามชื่อตัวแปรที่ Frontend ตัวใหม่ส่งมา
+    const { fullname, std_class_id, username, password, profile, major } = req.body;
+    
+    if (!fullname || !std_class_id || !username || !password)
+      return res.status(400).json({ err: "กรุณากรอกข้อมูลให้ครบถ้วน" });
 
+    // 2. ค้นหาว่ามี username หรือ รหัสนักเรียน ซ้ำไหม
     const where = `select * from students where username = $1 or std_class_id = $2`;
-    const fintExitStd = await pool.query(where, [username, studentId]);
+    const fintExitStd = await pool.query(where, [username, std_class_id]);
     if (fintExitStd.rows.length > 0)
       return res.json({
         err: "มีข้อมูลรหัสนักศึกษานี้หรือ username นี้อยู่แล้ว",
       });
 
-    const query = `INSERT INTO students (fullname,std_class_id,username,password,major) 
-                   VALUES ($1, $2, $3, $4, $5) RETURNING *`;
+    // 3. เพิ่มคอลัมน์ profile และ major เข้าไปในคำสั่ง INSERT 
+    const query = `INSERT INTO students (fullname, std_class_id, username, password, major, profile) 
+                   VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`;
 
     const result = await pool.query(query, [
-      fullName,
-      studentId,
+      fullname,
+      std_class_id,
       username,
       password,
-      "IT",
+      major || "IT", // ถ้าหน้าเว็บไม่ได้ส่ง major มา ให้ตั้งค่าเริ่มต้นเป็น "IT"
+      profile || "default_profile.png", // ใส่รูปโปรไฟล์เริ่มต้น (สำคัญมาก ป้องกัน Error NOT NULL)
     ]);
-    if (!result) return res.status(400);
+    
+    if (!result.rows.length) return res.status(400).json({ err: "สมัครสมาชิกไม่สำเร็จ" });
 
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: true, message: "สมัครสมาชิกสำเร็จ" });
   } catch (error) {
     console.log(error);
-    res.status(500).json(error);
+    res.status(500).json({ err: "เกิดข้อผิดพลาดจากเซิร์ฟเวอร์" });
   }
 });
 
