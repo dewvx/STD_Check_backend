@@ -6,28 +6,23 @@ const subjectRoute = Router();
 // CREATE: เพิ่มรายวิชา
 subjectRoute.post("/create-subject", async (req, res) => {
   try {
-    const { course_name, teacher_id, time_check } = req.body;
+    // แก้ไข: กลับมารับ teacher_name ตรงๆ จาก React
+    const { course_name, teacher_name, time_check } = req.body;
     console.log("🚀 ~ req.body:", req.body);
 
     // ตรวจสอบข้อมูล
-    if (!course_name || !teacher_id || !time_check) {
+    if (!course_name || !teacher_name || !time_check) {
       return res.json({
         err: "กรุณากรอกข้อมูลให้ครบทุกช่อง",
       });
     }
 
-    const teacher = await pool.query(
-      "select fullname from professors where id = $1",
-      [teacher_id],
-    );
-    if (teacher.rows.length < 1) return res.json({ err: "กรุณาเลือกอาจารย์" });
-
-    const query = `INSERT INTO courses (course_name, teacher_name,time_check) 
+    const query = `INSERT INTO courses (course_name, teacher_name, time_check) 
                    VALUES ($1, $2, $3) RETURNING *`;
 
     const result = await pool.query(query, [
       course_name,
-      teacher.rows[0].fullname,
+      teacher_name,
       time_check,
     ]);
 
@@ -100,21 +95,13 @@ subjectRoute.get("/get-subject/:id", async (req, res) => {
 subjectRoute.put("/update-subject/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { course_name, teacher_id, time_check } = req.body;
+    // แก้ไข: กลับมารับ teacher_name ตรงๆ จาก React
+    const { course_name, teacher_name, time_check } = req.body;
 
-    if (!course_name || !teacher_id || !time_check) {
+    if (!course_name || !teacher_name || !time_check) {
       return res.status(400).json({
         error: "กรุณากรอกข้อมูลให้ครบทุกช่อง",
       });
-    }
-
-    // ดึงชื่ออาจารย์จาก teacher_id เหมือนกับตอน create
-    const teacher = await pool.query(
-      "SELECT fullname FROM professors WHERE id = $1",
-      [teacher_id]
-    );
-    if (teacher.rows.length < 1) {
-      return res.status(404).json({ error: "ไม่พบอาจารย์" });
     }
 
     const query = `UPDATE courses 
@@ -124,7 +111,7 @@ subjectRoute.put("/update-subject/:id", async (req, res) => {
 
     const result = await pool.query(query, [
       course_name,
-      teacher.rows[0].fullname,
+      teacher_name,
       time_check,
       id,
     ]);
